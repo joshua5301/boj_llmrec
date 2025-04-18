@@ -38,7 +38,7 @@ class Recommender:
         train_df['item_id'] = train_df['item_id'].astype(int)
         dataset = Dataset(train_df, None, None, None)
         self.model = MultiVAE(dataset)
-        self.model.load_state_dict(torch.load(model_path, weights_only=True))
+        self.model.load_state_dict(torch.load(model_path, weights_only=True, map_location=torch.device('cpu')))
         self.model.eval()
 
     def recommend(self, user_handle: str) -> list:

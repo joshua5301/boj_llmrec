@@ -8,7 +8,7 @@ class MultiVAE(torch.nn.Module):
         self.user_item_matrix = torch.tensor(self.dataset.user_item_matrix.todense(), dtype=torch.float32)
 
         self.dropout = torch.nn.Dropout(p=0.5)
-        self.encoder_dim = [self.dataset.item_cnt] + [2000, 300]
+        self.encoder_dim = [self.dataset.item_cnt] + [1000, 200]
         self.decoder_dim = self.encoder_dim[::-1]
         self.decoder_dim[0] = self.decoder_dim[0] // 2
 

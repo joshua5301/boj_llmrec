@@ -1,5 +1,5 @@
 import torch
-from .dataset import Dataset
+from ..dataset import Dataset
 
 class MultiVAE(torch.nn.Module):
     def __init__(self, dataset: Dataset) -> None:

@@ -8,6 +8,18 @@ class LLM:
     def __init__(self, api_key):
         self.api_key = api_key
         self.client = OpenAI(api_key=api_key)
+        self.tts_prompt = """
+        당신은 LLM의 출력을 음성으로 전환할 때, 출력에서 불필요한 부분을 제거해주는 시스템입니다.
+        LLM이 출력한 내용 도중 코드 블럭이나, 링크, 이모티콘이 포함되어 있다면, 이를 제거하세요.
+        불필요한 부분을 제외한 나머지 부분은 그대로 유지하세요.
+
+        """
+        self.title_prompt = """
+        당신은 LLM과 유저의 대화 기록을 바탕으로 적절한 세션 제목을 생성하는 시스템입니다.
+        짧고 간결하게 대화 내용을 요약하여, 세션의 주제를 나타내는 제목을 생성하세요.
+        다음은 대화 기록입니다.
+
+        """
         self.prompt = """
         당신은 Baekjoon Online Judge의 알고리즘 문제를 추천해주는 친절한 대화형 추천 시스템입니다.
         유저가 문제를 요청하면, 기계적으로 문제 목록만 나열하지 말고, 대화하며 추천해 주세요.
@@ -117,4 +129,21 @@ class LLM:
             "role": "assistant",
             "content": response.choices[0].message.content
         })
-        return response.choices[0].message.content, prev_msgs
+        text_output = response.choices[0].message.content
+        speech_output = self.client.chat.completions.create(
+            model="gpt-4.1",
+            messages=[{
+                "role": "user",
+                "content": self.tts_prompt + text_output
+            }]
+        ).choices[0].message.content
+        return text_output, speech_output, prev_msgs
+    
+    def get_session_title(self, message: str, response: str) -> str:
+        prompt = self.title_prompt + f"User: {message}\nAssistant: {response}"
+        response = self.client.chat.completions.create(
+            model="gpt-4.1",
+            messages=[{"role": "user", "content": self.title_prompt + prompt}],
+        )
+        return response.choices[0].message.content.strip()
+        

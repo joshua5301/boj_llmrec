@@ -6,6 +6,9 @@ def vae_bce_loss(true: torch.Tensor, pred: torch.Tensor) -> torch.Tensor:
 def vae_reg_loss(mu: torch.Tensor, log_var: torch.Tensor) -> torch.Tensor:
     return -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp(), axis=1)
 
+def bpr_loss(pos_scores: torch.Tensor, neg_scores: torch.Tensor) -> torch.Tensor:
+    return torch.mean(torch.nn.functional.softplus(neg_scores - pos_scores))
+
 def recall(true: list[list], pred: list[list]) -> float:
     recall = 0
     nonempty_cnt = 0

@@ -1,7 +1,7 @@
 import torch
-from .dataset import Dataset
-from .model import MultiVAE
-from .utils import vae_reg_loss, vae_bce_loss, recall
+from ..dataset import Dataset
+from .MultiVAE import MultiVAE
+from ..utils import vae_reg_loss, vae_bce_loss, recall
 
 class MultiVAETrainer:
     def __init__(self, dataset: Dataset, model: MultiVAE) -> None:

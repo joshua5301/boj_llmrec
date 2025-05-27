@@ -24,20 +24,19 @@ if api_key:
     user_handle = st.text_input("🔍 사용자 핸들 입력", value="37aster")
 
     if st.button("새로운 세션 시작"):
-        try:
-            st.session_state.session = llmrec.get_new_session(user_handle)
-            st.session_state.chat_history = []
-            st.success("세션이 시작되었습니다. 메시지를 입력해보세요!")
-        except Exception as e:
-            st.error(f"세션을 시작할 수 없습니다: {e}")
+        st.session_state.session = llmrec.get_new_session(user_handle)
+        st.session_state.chat_history = []
+        st.success("세션이 시작되었습니다. 메시지를 입력해보세요!")
 
     if st.session_state.session:
         message = st.text_input("💬 메시지 입력", key="user_msg")
         if st.button("전송") and message.strip():
             with st.spinner("LLM 응답 생성 중..."):
-                response = st.session_state.session.chat(message)
+                text_response, speech_response = st.session_state.session.chat(message)
                 st.session_state.chat_history.append(("👤", message))
-                st.session_state.chat_history.append(("🤖", response))
+                st.session_state.chat_history.append(("🤖", text_response))
+                st.session_state.chat_history.append(("🔊", speech_response))
+                st.success(f"세션 제목: {st.session_state.session.title}")
 
     if st.session_state.chat_history:
         st.markdown("---")

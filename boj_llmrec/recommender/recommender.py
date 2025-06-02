@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 import torch
+import requests
 
 from .dataset import Dataset
 from .encoder import Encoder
@@ -17,25 +18,26 @@ class Recommender:
     def __init__(self, data_path: str) -> None:
         self.solved_info = pd.read_csv(os.path.join(data_path, 'solved_info.csv'), index_col=0)
         self.solved_info.columns = ['user_id', 'item_id']
-        self.multivae_model = None
-        self.lightgcn_model = None
-        self.encoder = None
+        self.problem_info = pd.read_csv(os.path.join(data_path, 'problem_info.csv'))
+        self._init_recommender()
 
-    def train_model(self, model_type: str) -> None:
+    def _init_recommender(self) -> None:
         self.encoder = Encoder()
         train_df = self.encoder.fit_transform(self.solved_info)
         train_df['user_id'] = train_df['user_id'].astype(int)
         train_df['item_id'] = train_df['item_id'].astype(int)
-        dataset = Dataset(train_df, None, None, None)
+        self.dataset = Dataset(train_df, None, None, None)
+        self.lightgcn_model = LightGCN(self.dataset)
+        self.multivae_model = MultiVAE(self.dataset)
+
+    def train_model(self, model_type: str) -> None:
         if model_type == 'LightGCN':
-            self.lightgcn_model = LightGCN(dataset)
-            trainer = LightGCNTrainer(dataset, self.lightgcn_model)
+            trainer = LightGCNTrainer(self.dataset, self.lightgcn_model)
             trainer.train()
         elif model_type == 'MultiVAE':
-            self.multivae_model = MultiVAE(dataset)
-            trainer = MultiVAETrainer(dataset, self.multivae_model)
+            trainer = MultiVAETrainer(self.dataset, self.multivae_model)
             trainer.train()
-    
+
     def save_model(self, model_path: str, model_type: str) -> None:
         if model_type == 'LightGCN':
             model = self.lightgcn_model
@@ -44,23 +46,19 @@ class Recommender:
         torch.save(model.state_dict(), model_path)
 
     def load_model(self, model_path: str, model_type: str) -> None:
-        self.encoder = Encoder()
-        train_df = self.encoder.fit_transform(self.solved_info)
-        train_df['user_id'] = train_df['user_id'].astype(int)
-        train_df['item_id'] = train_df['item_id'].astype(int)
-        dataset = Dataset(train_df, None, None, None)
         if model_type == 'LightGCN':
-            self.lightgcn_model = LightGCN(dataset)
             self.lightgcn_model.load_state_dict(torch.load(model_path, weights_only=True, map_location=torch.device('cpu')))
             self.lightgcn_model.eval()
         elif model_type == 'MultiVAE':
-            self.multivae_model = MultiVAE(dataset)
             self.multivae_model.load_state_dict(torch.load(model_path, weights_only=True, map_location=torch.device('cpu')))
             self.multivae_model.eval()
 
-    def recommend(self, user_handle: str) -> list:
+    def get_recommended_problems(self, user_handle: str) -> list:
         downloader = DataDownloader()
-        problems = downloader.get_top_100_problems(user_handle)
+        try:
+            problems = downloader.get_top_100_problems(user_handle)
+        except requests.exceptions.HTTPError as e:
+            problems = []
         solved_ids = []
         for problem in problems:
             solved_ids.append(problem['problemId'])
@@ -76,15 +74,34 @@ class Recommender:
         scores[mask] = -np.inf
         sorted_problem_ids = np.argsort(scores)[::-1]
         sorted_problem_ids = self.encoder.item_encoder.inverse_transform(sorted_problem_ids.reshape(-1, 1)).ravel()
-        return sorted_problem_ids.tolist()
-    
+        sorted_df = self.problem_info.set_index('problemId', drop=True).loc[sorted_problem_ids].reset_index()
+        return sorted_df
+
     def get_similar_problems(self, problem_id: int) -> list:
         problem_id = self.encoder.item_encoder.transform(np.array([problem_id]).reshape(-1, 1)).item()
         if problem_id < 0:
             raise ValueError("Problem ID not found in the dataset.")
-        target_embedding = self.lightgcn_model.item_embeddings.weight[problem_id].unsqueeze(0)
-        all_embeddings = self.lightgcn_model.item_embeddings.weight
+        target_embedding = self.lightgcn_model.item_embedding.weight[problem_id].unsqueeze(0)
+        all_embeddings = self.lightgcn_model.item_embedding.weight
         similarities = torch.nn.functional.cosine_similarity(target_embedding, all_embeddings)
-        sorted_problem_ids = torch.argsort(similarities)[::-1]
+        similarities = similarities.cpu().detach().numpy()
+        sorted_problem_ids = np.argsort(similarities)[::-1]
         sorted_problem_ids = self.encoder.item_encoder.inverse_transform(sorted_problem_ids.reshape(-1, 1)).ravel()
-        return sorted_problem_ids.tolist()
+        sorted_df = self.problem_info.set_index('problemId', drop=True).loc[sorted_problem_ids].reset_index()
+        return sorted_df
+    
+    def get_other_user_problems(self, recommended_problems: pd.DataFrame, base_user_handle: str, target_user_handle: str) -> list:
+        downloader = DataDownloader()
+        try:
+            base_user_problems = downloader.get_top_100_problems(base_user_handle)
+            target_user_problems = downloader.get_top_100_problems(target_user_handle)
+        except requests.exceptions.HTTPError as e:
+            base_user_problems = []
+            target_user_problems = []
+        base_problem_ids = {problem['problemId'] for problem in base_user_problems}
+        target_problem_ids = {problem['problemId'] for problem in target_user_problems}
+        other_problem_ids = list(target_problem_ids - base_problem_ids)
+        other_problem_ids = [id for id in other_problem_ids if id >= 0]
+        other_user_problems = self.problem_info.set_index('problemId', drop=True).loc[other_problem_ids].reset_index()
+        sorted_df = recommended_problems[recommended_problems['problemId'].isin(other_user_problems['problemId'])].copy()
+        return sorted_df

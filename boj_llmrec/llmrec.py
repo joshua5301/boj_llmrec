@@ -5,30 +5,27 @@ from .recommender import Recommender
 from .llm import LLM
 
 class Session:
-    def __init__(self, user_handle: str, recommendations: list[int], llm: LLM) -> None:
+    def __init__(self, llm: LLM, user_handle: str, profile: dict) -> None:
         self.user_handle = user_handle
         self.llm = llm
-        self.recommendations = recommendations
+        self.profile = profile
         self.title = None
         self.prev_msgs = []
 
     def chat(self, message: str) -> str:
-        text_response, speech_response, prev_msgs = self.llm.chat(message, self.prev_msgs, self.recommendations)
+        text_response, speech_response, prev_msgs, keywords = self.llm.chat(message, self.prev_msgs, self.user_handle, self.profile)
         self.prev_msgs = prev_msgs
-        print(self.prev_msgs)
         if not self.title:
             self.title = self.llm.get_session_title(message, speech_response)
-        return text_response, speech_response
+        return text_response, speech_response, keywords
 
 class LLMRec:
     def __init__(self, api_key: str) -> None:
         self.TOP_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.DATA_PATH = os.path.join(self.TOP_PATH, 'data')
         self.MODEL_PATH = os.path.join(self.TOP_PATH, 'saved')
-        self.lightgcn_recommender = Recommender(self.DATA_PATH)
-        self.multivae_recommender = Recommender(self.DATA_PATH)
-        self.llm = LLM(api_key=api_key)
-        self.problem_info = pd.read_csv(os.path.join(self.DATA_PATH, 'problem_info.csv'))
+        self.recommender = Recommender(self.DATA_PATH)
+        self.llm = LLM(api_key=api_key, recommender=self.recommender)
         self._load_model()
 
     def _load_model(self) -> None:
@@ -38,11 +35,10 @@ class LLMRec:
             raise FileNotFoundError(f"Model file not found at {lightgcn_model_path}. Please train the model first.")
         if not os.path.exists(multivae_model_path):
             raise FileNotFoundError(f"Model file not found at {multivae_model_path}. Please train the model first.")
-        self.lightgcn_recommender.load_model(lightgcn_model_path, model_type='LightGCN')
-        self.multivae_recommender.load_model(multivae_model_path, model_type='MultiVAE')
+        self.recommender.load_model(lightgcn_model_path, model_type='LightGCN')
+        self.recommender.load_model(multivae_model_path, model_type='MultiVAE')
+        self.llm = LLM(api_key=self.llm.api_key, recommender=self.recommender)
 
-    def get_new_session(self, user_handle: str) -> Session:
-        rec_ids = self.multivae_recommender.recommend(user_handle)
-        rec_df = self.problem_info.set_index('problemId', drop=True).loc[rec_ids].reset_index()
-        session = Session(user_handle, rec_df, self.llm)
-        return session 
+    def get_new_session(self, user_handle: str, profile: dict) -> Session:
+        session = Session(self.llm, user_handle, profile)
+        return session

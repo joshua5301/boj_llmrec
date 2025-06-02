@@ -33,13 +33,13 @@ expr = infixNotation(
      (Literal("||"), 2, opAssoc.LEFT)]
 )
 
-def get_recommended_problems(sorted_problem_info: pd.DataFrame,
+def get_filtered_problems(sorted_problem_info: pd.DataFrame,
                              topk: int = 10,
                              tags: str = "",
                              max_difficulty: str = "",
                              min_difficulty: str = "",
                              alternative: int = 0,
-                             ) -> str:
+                             **kwargs) -> str:
     def tag_mask(tag: str) -> pd.Series:
         return sorted_problem_info["tags"].str.contains(tag, regex=False).convert_dtypes().fillna(False)
 
@@ -95,5 +95,5 @@ if __name__ == "__main__":
     })
 
     topk = 2
-    result = get_recommended_problems(condition, sorted_problem_info, topk)
+    result = get_filtered_problems(condition, sorted_problem_info, topk)
     print(result)

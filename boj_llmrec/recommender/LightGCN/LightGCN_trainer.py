@@ -21,7 +21,7 @@ class LightGCNTrainer:
         sampler = NegativeSampler(self.dataset, 100, 1)
         
         self.model.to(device)
-        for epoch in range(1):
+        for epoch in range(10):
             total_loss = 0
             pairwise_samples = sampler.get_samples().to(device)
             dataset = torch.utils.data.TensorDataset(*pairwise_samples.T)

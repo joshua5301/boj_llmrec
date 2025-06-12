@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import torch
 import requests
+import json
 
 from .dataset import Dataset
 from .encoder import Encoder
@@ -19,6 +20,18 @@ class Recommender:
         self.solved_info = pd.read_csv(os.path.join(data_path, 'solved_info.csv'), index_col=0)
         self.solved_info.columns = ['user_id', 'item_id']
         self.problem_info = pd.read_csv(os.path.join(data_path, 'problem_info.csv'))
+
+        self.top_100_info = {}
+        top_100_path = os.path.join(data_path, 'top_100_for_demo')
+        for filename in os.listdir(top_100_path):
+            if filename.startswith("top_100_") and filename.endswith(".json"):
+                username = filename[len("top_100_"):-len(".json")]
+
+                file_path = os.path.join(top_100_path, filename)
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)['items']
+                    self.top_100_info[username] = data
+        
         self._init_recommender()
 
     def _init_recommender(self) -> None:
@@ -58,12 +71,19 @@ class Recommender:
         try:
             problems = downloader.get_top_100_problems(user_handle)
         except requests.exceptions.HTTPError as e:
-            problems = []
+            if user_handle in self.top_100_info:
+                problems = self.top_100_info[user_handle]
+                print(f"Using cached top 100 problems for {user_handle}.")
+            else:
+                problems = []
+                print(f"Error fetching top 100 problems for {user_handle}: {e}")
+            
         solved_ids = []
         for problem in problems:
             solved_ids.append(problem['problemId'])
-        solved_ids = self.encoder.item_encoder.transform(np.array(solved_ids).reshape(-1, 1)).ravel()
-        solved_ids = [id for id in solved_ids if id >= 0]
+        if solved_ids:
+            solved_ids = self.encoder.item_encoder.transform(np.array(solved_ids).reshape(-1, 1)).ravel()
+            solved_ids = [id for id in solved_ids if id >= 0]
         is_solved = np.zeros(self.multivae_model.dataset.item_cnt)
         is_solved[solved_ids] = 1
         is_solved = torch.tensor(is_solved, dtype=torch.float32).unsqueeze(0)
@@ -96,8 +116,14 @@ class Recommender:
             base_user_problems = downloader.get_top_100_problems(base_user_handle)
             target_user_problems = downloader.get_top_100_problems(target_user_handle)
         except requests.exceptions.HTTPError as e:
-            base_user_problems = []
-            target_user_problems = []
+            if base_user_handle in self.top_100_info:
+                base_user_problems = self.top_100_info[base_user_handle]
+            else:
+                base_user_problems = []
+            if target_user_handle in self.top_100_info:
+                target_user_problems = self.top_100_info[target_user_handle]
+            else:
+                target_user_problems = []
         base_problem_ids = {problem['problemId'] for problem in base_user_problems}
         target_problem_ids = {problem['problemId'] for problem in target_user_problems}
         other_problem_ids = list(target_problem_ids - base_problem_ids)

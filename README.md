@@ -12,7 +12,7 @@ LLM(GPT-4.1)과 협업 필터링 기반 추천 시스템(MultiVAE, LightGCN)을 
 
 ### 1. 프로필 설정
 
-![프로필 입력](images/initial.png)
+<img src="images/initial.png" width="600">
 
 OpenAI API 키 입력 후 나타나는 프로필 설정 화면입니다. solved.ac 핸들, 현재 알고리즘 실력(very low ~ very high), 문제 풀이 목적(코딩 테스트·대회·학습·취미), 관심 알고리즘 주제를 설정합니다. 이 정보는 LLM 시스템 프롬프트에 반영되어 추천 방향과 응답 톤을 조정합니다.
 
@@ -20,7 +20,7 @@ OpenAI API 키 입력 후 나타나는 프로필 설정 화면입니다. solved.
 
 ### 2. 기본 문제 추천
 
-![기본 추천](images/recommend.png)
+<img src="images/recommend.png" width="600">
 
 "백준 문제를 추천해줘"처럼 조건 없이 요청하면, MultiVAE가 풀이 이력 기반으로 생성한 후보군에서 프로필(목적·관심 태그)을 반영해 2~4개 문제를 추천합니다. 각 문제는 백준 링크, 난이도, 간단한 설명을 포함하며 세션 제목도 자동으로 생성됩니다.
 
@@ -28,7 +28,7 @@ OpenAI API 키 입력 후 나타나는 프로필 설정 화면입니다. solved.
 
 ### 3. 조건 필터링 추천
 
-![필터 추천](images/recommend_filtered.png)
+<img src="images/recommend_filtered.png" width="600">
 
 "조금 더 쉬운, greedy 문제 없을까?"처럼 **난이도나 문제 유형**을 대화 중에 언급하면, GPT-4.1이 조건을 자동으로 추출해 후보군을 필터링합니다. 위 예시에서는 Silver 난이도의 Greedy 문제만 선별해 추천하고 있습니다.
 
@@ -36,7 +36,7 @@ OpenAI API 키 입력 후 나타나는 프로필 설정 화면입니다. solved.
 
 ### 4. 유사 문제 추천
 
-![유사 문제](images/similar.png)
+<img src="images/similar.png" width="600">
 
 "DSLR(9019번)과 유사한 문제 있어?"처럼 특정 문제 번호를 언급하면, LightGCN이 학습한 문제 임베딩 간 코사인 유사도를 기반으로 비슷한 유형의 문제를 찾아 추천합니다. 같은 알고리즘 개념을 다른 형태로 반복 연습하고 싶을 때 유용합니다.
 
@@ -44,7 +44,7 @@ OpenAI API 키 입력 후 나타나는 프로필 설정 화면입니다. solved.
 
 ### 5. 다른 유저 풀이 기반 추천
 
-![다른 유저 추천](images/other_user.png)
+<img src="images/other_user.png" width="600">
 
 "koosaga가 푼 문제들 중에서 추천해줘"처럼 특정 핸들을 언급하면, solved.ac API로 해당 유저의 top 100 풀이를 가져와 내가 아직 풀지 않은 문제 중 나에게 적합한 문제를 추천합니다. 실력자의 풀이 목록을 벤치마크로 활용하고 싶을 때 사용할 수 있습니다.
 
